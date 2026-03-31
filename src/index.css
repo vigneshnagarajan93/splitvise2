@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Resets ────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans text-sw-dark bg-sw-bg;
+    min-height: 100dvh;
+  }
+
+  /* Prevent text-size adjust on mobile */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* ── Component Utilities ───────────────────────────── */
+@layer components {
+  /* Balance color helpers */
+  .balance-positive {
+    @apply text-sw-green font-semibold;
+  }
+  .balance-negative {
+    @apply text-sw-orange font-semibold;
+  }
+
+  /* Splitwise-style card */
+  .sw-card {
+    @apply bg-sw-card rounded-2xl shadow-card transition-shadow duration-200;
+  }
+  .sw-card:hover {
+    @apply shadow-card-hover;
+  }
+
+  /* Divider */
+  .sw-divider {
+    @apply border-t border-sw-divider;
+  }
+
+  /* Shimmer skeleton */
+  .sw-shimmer {
+    @apply bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:400%_100%] animate-shimmer rounded;
+  }
+
+  /* Glass overlay backdrop */
+  .sw-backdrop {
+    @apply fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40;
+  }
+
+  /* FAB (Floating Action Button) */
+  .sw-fab {
+    @apply w-14 h-14 rounded-full bg-sw-orange text-white flex items-center justify-center
+           shadow-fab active:scale-95 transition-transform duration-150;
+  }
+
+  /* Bottom navigation safe spacing */
+  .bottom-nav-spacer {
+    height: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Input styling */
+  .sw-input {
+    @apply w-full border border-sw-divider rounded-xl px-4 py-3 text-sm
+           bg-white text-sw-dark placeholder-sw-gray-lt
+           focus:outline-none focus:ring-2 focus:ring-sw-teal/30 focus:border-sw-teal
+           transition-all duration-200;
+  }
+
+  /* Primary button */
+  .sw-btn-primary {
+    @apply w-full bg-sw-teal text-white font-semibold py-3 px-6 rounded-xl
+           hover:bg-sw-teal-dark active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-sw-teal/40 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-all duration-200 text-sm;
+  }
+
+  /* Secondary / ghost button */
+  .sw-btn-ghost {
+    @apply px-4 py-2 text-sm font-medium text-sw-gray rounded-xl
+           hover:bg-gray-100 active:scale-[0.98]
+           transition-all duration-200;
+  }
+
+  /* Settle-up button */
+  .sw-btn-settle {
+    @apply px-3 py-1.5 text-xs font-semibold rounded-full
+           bg-sw-orange text-white hover:bg-orange-600
+           active:scale-95 transition-all duration-150;
+  }
+}
+
+/* ── Custom Scrollbar ──────────────────────────────── */
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
