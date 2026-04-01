@@ -46,3 +46,25 @@ export async function deleteExpense(id) {
   }
   return res.json()
 }
+
+export async function getAppState() {
+  const res = await fetch('/.netlify/functions/appState')
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Request failed with status ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function setAppState(state) {
+  const res = await fetch('/.netlify/functions/appState', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(state),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Request failed with status ${res.status}`)
+  }
+  return res.json()
+}

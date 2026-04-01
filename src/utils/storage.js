@@ -1,34 +1,9 @@
-const PEOPLE_KEY = 'sv_people'
-const GROUPS_KEY = 'sv_groups'
+import { getAppState, setAppState } from '../api/expenses'
+
 const ACTIVE_GROUP_KEY = 'sv_active_group'
-const SETTLEMENTS_KEY = 'sv_settlements'
-const SPLIT_DETAILS_KEY = 'sv_split_details'
 const CURRENT_USER_KEY = 'sv_current_user'
 
-export const DEFAULT_PEOPLE = [
-  { id: '1', name: 'Alice' },
-  { id: '2', name: 'Bob' },
-]
-
-function readJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-// ── People ──────────────────────────────────────────
-export function getPeople() {
-  return readJSON(PEOPLE_KEY, DEFAULT_PEOPLE)
-}
-
-export function savePeople(people) {
-  localStorage.setItem(PEOPLE_KEY, JSON.stringify(people))
-}
-
-// ── Current User ────────────────────────────────────
+// ── Local UI State (Device Specific) ─────────────────
 export function getCurrentUser() {
   return localStorage.getItem(CURRENT_USER_KEY) ?? null
 }
@@ -36,15 +11,6 @@ export function getCurrentUser() {
 export function setCurrentUser(name) {
   if (name === null) localStorage.removeItem(CURRENT_USER_KEY)
   else localStorage.setItem(CURRENT_USER_KEY, name)
-}
-
-// ── Groups ──────────────────────────────────────────
-export function getGroups() {
-  return readJSON(GROUPS_KEY, [])
-}
-
-export function saveGroups(groups) {
-  localStorage.setItem(GROUPS_KEY, JSON.stringify(groups))
 }
 
 export function getActiveGroupId() {
@@ -56,17 +22,64 @@ export function setActiveGroupId(id) {
   else localStorage.setItem(ACTIVE_GROUP_KEY, id)
 }
 
-// ── Settlements ─────────────────────────────────────
-export function getSettlements() {
-  return readJSON(SETTLEMENTS_KEY, [])
+// ── Global State Cache (Netlify Blobs) ───────────────
+export const DEFAULT_PEOPLE = [
+  { id: '1', name: 'Alice' },
+  { id: '2', name: 'Bob' },
+]
+
+let cache = {
+  people: DEFAULT_PEOPLE,
+  groups: [],
+  settlements: [],
+  splitDetailsMap: {}
 }
 
+let syncTimeout = null
+function queueSync() {
+  if (syncTimeout) clearTimeout(syncTimeout)
+  // Debounce API calls by 500ms
+  syncTimeout = setTimeout(() => {
+    setAppState(cache).catch(err => console.error('Failed to sync state:', err))
+  }, 500)
+}
+
+export async function fetchGlobalState() {
+  try {
+    const remote = await getAppState()
+    if (remote.people && remote.people.length > 0) cache.people = remote.people
+    if (remote.groups) cache.groups = remote.groups
+    if (remote.settlements) cache.settlements = remote.settlements
+    if (remote.splitDetailsMap) cache.splitDetailsMap = remote.splitDetailsMap
+    return cache
+  } catch (err) {
+    console.error('Failed to load global state', err)
+    return cache
+  }
+}
+
+// ── People ──────────────────────────────────────────
+export function getPeople() { return cache.people }
+export function savePeople(people) {
+  cache.people = people
+  queueSync()
+}
+
+// ── Groups ──────────────────────────────────────────
+export function getGroups() { return cache.groups }
+export function saveGroups(groups) {
+  cache.groups = groups
+  queueSync()
+}
+
+// ── Settlements ─────────────────────────────────────
+export function getSettlements() { return cache.settlements }
 export function saveSettlements(settlements) {
-  localStorage.setItem(SETTLEMENTS_KEY, JSON.stringify(settlements))
+  cache.settlements = settlements
+  queueSync()
 }
 
 export function addSettlement(from, to, amount) {
-  const settlements = getSettlements()
   const settlement = {
     id: `settle_${Date.now()}`,
     from,
@@ -74,54 +87,40 @@ export function addSettlement(from, to, amount) {
     amount,
     date: new Date().toISOString().split('T')[0],
   }
-  settlements.push(settlement)
-  saveSettlements(settlements)
+  saveSettlements([...cache.settlements, settlement])
   return settlement
 }
 
 export function updateSettlement(id, updates) {
-  const settlements = getSettlements()
-  const idx = settlements.findIndex((s) => s.id === id)
+  const idx = cache.settlements.findIndex((s) => s.id === id)
   if (idx === -1) return null
-  settlements[idx] = { ...settlements[idx], ...updates }
-  saveSettlements(settlements)
-  return settlements[idx]
+  const updated = [...cache.settlements]
+  updated[idx] = { ...updated[idx], ...updates }
+  saveSettlements(updated)
+  return updated[idx]
 }
 
 export function deleteSettlement(id) {
-  const settlements = getSettlements()
-  const filtered = settlements.filter((s) => s.id !== id)
-  saveSettlements(filtered)
+  saveSettlements(cache.settlements.filter((s) => s.id !== id))
 }
 
 // ── Split Details ───────────────────────────────────
-// Stores per-expense split configuration in localStorage.
-// Shape: { [expenseId]: { type: 'equal'|'exact'|'percent'|'ratio', shares: { [name]: number } } }
-function getAllSplitDetails() {
-  return readJSON(SPLIT_DETAILS_KEY, {})
-}
-
+export function getAllSplitDetailsMap() { return cache.splitDetailsMap }
 function saveAllSplitDetails(all) {
-  localStorage.setItem(SPLIT_DETAILS_KEY, JSON.stringify(all))
+  cache.splitDetailsMap = all
+  queueSync()
 }
 
 export function getSplitDetails(expenseId) {
-  const all = getAllSplitDetails()
-  return all[expenseId] ?? null
+  return cache.splitDetailsMap[expenseId] ?? null
 }
 
 export function saveSplitDetails(expenseId, details) {
-  const all = getAllSplitDetails()
-  all[expenseId] = details
-  saveAllSplitDetails(all)
+  saveAllSplitDetails({ ...cache.splitDetailsMap, [expenseId]: details })
 }
 
 export function deleteSplitDetails(expenseId) {
-  const all = getAllSplitDetails()
+  const all = { ...cache.splitDetailsMap }
   delete all[expenseId]
   saveAllSplitDetails(all)
-}
-
-export function getAllSplitDetailsMap() {
-  return readJSON(SPLIT_DETAILS_KEY, {})
 }

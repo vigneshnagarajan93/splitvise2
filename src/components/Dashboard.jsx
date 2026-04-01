@@ -240,7 +240,7 @@ export default function Dashboard({
   return (
     <>
       {/* Your personal balance card */}
-      {currentUser && (
+      {currentUser ? (
         <YourBalanceCard
           currentUser={currentUser}
           expenses={expenses}
@@ -249,6 +249,16 @@ export default function Dashboard({
           groups={groups}
           people={people}
         />
+      ) : (
+        <div className="bg-sw-teal/10 border border-sw-teal/20 rounded-2xl p-4 flex items-center gap-3 animate-fade-in mb-4">
+          <div className="w-10 h-10 rounded-full bg-sw-teal/20 flex flex-shrink-0 items-center justify-center text-sw-teal">
+            <User size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-sw-dark">Identify yourself</p>
+            <p className="text-xs text-sw-gray mt-0.5">Go to the Account tab and select your name to see your personal balances.</p>
+          </div>
+        </div>
       )}
 
       {/* Overall debts */}
@@ -295,11 +305,17 @@ export default function Dashboard({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold text-sw-dark truncate">{debt.from}</span>
+                    <span className="text-sm font-semibold text-sw-dark truncate">
+                      {debt.from === currentUser ? 'You' : debt.from}
+                    </span>
                     <ArrowRight size={12} className="text-sw-gray-lt shrink-0" />
-                    <span className="text-sm font-semibold text-sw-dark truncate">{debt.to}</span>
+                    <span className="text-sm font-semibold text-sw-dark truncate">
+                      {debt.to === currentUser ? 'You' : debt.to}
+                    </span>
                   </div>
-                  <p className="text-xs text-sw-gray mt-0.5">owes {formatCurrency(debt.amount)}</p>
+                  <p className="text-xs text-sw-gray mt-0.5">
+                    {debt.from === currentUser ? 'owe' : 'owes'} {formatCurrency(debt.amount)}
+                  </p>
                 </div>
 
                 <button

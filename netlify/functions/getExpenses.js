@@ -83,6 +83,12 @@ export const handler = async (event) => {
   try {
     const response = await notion.databases.query({
       database_id: databaseId,
+      filter: {
+        property: 'Expense Name',
+        title: {
+          does_not_equal: '__APP_STATE__'
+        }
+      },
       sorts: [{ property: 'Date', direction: 'descending' }],
     })
 

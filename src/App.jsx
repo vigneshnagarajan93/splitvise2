@@ -24,6 +24,7 @@ import {
   getAllSplitDetailsMap,
   saveSplitDetails,
   deleteSplitDetails,
+  fetchGlobalState
 } from './utils/storage'
 
 export default function App() {
@@ -52,8 +53,11 @@ export default function App() {
     ? people.filter((p) => activeGroup.memberIds.includes(p.id))
     : people
 
-  const filteredExpenses = activeGroup
+  const filteredExpenses = activeGroupId
     ? expenses.filter((e) => {
+        const details = splitDetailsMap[e.id]
+        if (details?.groupId) return details.groupId === activeGroupId
+        // Fallback for older expenses
         const memberNames = new Set(activePeople.map((p) => p.name))
         return memberNames.has(e.paidBy) && e.splitWith?.every((s) => memberNames.has(s))
       })
@@ -70,12 +74,19 @@ export default function App() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    getExpenses()
-      .then((data) => {
-        if (!cancelled) setExpenses(data)
+    
+    Promise.all([getExpenses(), fetchGlobalState()])
+      .then(([expensesData, globalState]) => {
+        if (!cancelled) {
+          setExpenses(expensesData)
+          setPeople(globalState.people)
+          setGroups(globalState.groups)
+          setSettlements(globalState.settlements)
+          setSplitDetailsMap(globalState.splitDetailsMap)
+        }
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message ?? 'Failed to load expenses.')
+        if (!cancelled) setError(err.message ?? 'Failed to load app data.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -136,11 +147,14 @@ export default function App() {
     try {
       const { id } = await addExpense(data)
       setExpenses((prev) => [{ id, ...data }, ...prev])
-      // Save split details if non-equal
-      if (splitDetails) {
-        saveSplitDetails(id, splitDetails)
+      
+      if (splitDetails || activeGroupId) {
+        const payload = splitDetails || { type: 'equal', shares: {} }
+        if (activeGroupId) payload.groupId = activeGroupId
+        saveSplitDetails(id, payload)
         setSplitDetailsMap(getAllSplitDetailsMap())
       }
+
       setShowForm(false)
       setEditingExpense(null)
       setActiveTab('dashboard')
@@ -160,8 +174,10 @@ export default function App() {
         prev.map((e) => (e.id === id ? { ...e, ...data } : e))
       )
       // Update split details
-      if (splitDetails) {
-        saveSplitDetails(id, splitDetails)
+      if (splitDetails || activeGroupId) {
+        const payload = splitDetails || { type: 'equal', shares: {} }
+        if (activeGroupId) payload.groupId = activeGroupId
+        saveSplitDetails(id, payload)
       } else {
         deleteSplitDetails(id)
       }
@@ -207,6 +223,8 @@ export default function App() {
     }
     setActiveTab(tab)
   }
+
+  // ── Render ───────────────────────────────
 
   return (
     <div className="min-h-screen bg-sw-bg">
