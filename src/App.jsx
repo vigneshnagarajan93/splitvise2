@@ -114,8 +114,19 @@ export default function App() {
   }
 
   function handleCreateGroup(name, memberIds) {
-    const newGroup = { id: Date.now().toString(), name, memberIds }
+    const newGroup = { 
+      id: Date.now().toString(), 
+      name, 
+      memberIds,
+      createdBy: currentUser // Track who created the group
+    }
     handleUpdateGroups([...groups, newGroup])
+  }
+
+  function handleUpdateSingleGroup(id, updates) {
+    handleUpdateGroups(
+      groups.map((g) => (g.id === id ? { ...g, ...updates } : g))
+    )
   }
 
   // ── Current user ─────────────────────────
@@ -376,6 +387,7 @@ export default function App() {
           groups={groups}
           onUpdatePeople={handleUpdatePeople}
           onUpdateGroups={handleUpdateGroups}
+          onUpdateSingleGroup={handleUpdateSingleGroup}
           onClose={() => setShowSettings(false)}
           currentUser={currentUser}
           onSetCurrentUser={handleSetCurrentUser}

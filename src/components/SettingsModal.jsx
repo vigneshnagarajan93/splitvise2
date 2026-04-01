@@ -128,7 +128,11 @@ function PeopleTab({ people, onUpdate, currentUser, onSetCurrentUser }) {
   )
 }
 
-function GroupsTab({ groups, people, onUpdate }) {
+function GroupsTab({ groups, people, onUpdate, onUpdateSingleGroup, currentUser }) {
+  const [editingGroupId, setEditingGroupId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editMembers, setEditMembers] = useState([])
+
   function deleteGroup(id) {
     onUpdate(groups.filter((g) => g.id !== id))
   }
@@ -153,12 +157,92 @@ function GroupsTab({ groups, people, onUpdate }) {
         <ul className="space-y-2">
           {groups.map((group) => {
             const memberNames = getMemberNames(group.memberIds)
+            // check permissions for edit/delete
+            // user needs to be creator, or a member of the group, and also a user must be selected.
+            // If group doesn't have a creator (older data), default to the "is member" rule.
+            const currentUserObj = people.find(p => p.name === currentUser)
+            const isAuthorized = currentUserObj && (
+              group.createdBy === currentUser ||
+              group.memberIds.includes(currentUserObj.id)
+            )
+
+            if (editingGroupId === group.id) {
+              return (
+                <li key={group.id} className="p-4 rounded-xl border border-sw-teal bg-white animate-fade-in shadow-sm space-y-4">
+                  <div>
+                    <input
+                      autoFocus
+                      type="text"
+                      className="sw-input w-full text-sm font-semibold"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      placeholder="Group name"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-sw-gray uppercase tracking-wider mb-2">
+                      Members (at least 2)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {people.map((p) => {
+                        const isSelected = editMembers.includes(p.id)
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setEditMembers(prev =>
+                                prev.includes(p.id) ? prev.filter(m => m !== p.id) : [...prev, p.id]
+                              )
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+                              isSelected
+                                ? 'border-sw-teal bg-sw-teal/10 text-sw-teal'
+                                : 'border-sw-divider bg-white text-sw-gray hover:border-sw-teal/40'
+                            }`}
+                          >
+                            <Avatar name={p.name} size="xs" />
+                            {p.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={!editName.trim() || editMembers.length < 2}
+                      onClick={() => {
+                        onUpdateSingleGroup(group.id, { name: editName.trim(), memberIds: editMembers })
+                        setEditingGroupId(null)
+                      }}
+                      className="sw-btn-primary flex-1 py-2 text-xs"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingGroupId(null)}
+                      className="sw-btn-ghost py-2 text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </li>
+              )
+            }
+
             return (
               <li key={group.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/80 group hover:bg-gray-100/80 transition-colors">
                 <div className="flex -space-x-1.5 shrink-0">
                   {memberNames.slice(0, 3).map((n) => (
                     <Avatar key={n} name={n} size="xs" className="ring-2 ring-white" />
                   ))}
+                  {memberNames.length > 3 && (
+                    <div className="w-6 h-6 rounded-full bg-gray-200 text-sw-gray flex items-center justify-center ring-2 ring-white" style={{ fontSize: '10px', fontWeight: 'bold' }}>
+                      +{memberNames.length - 3}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-sw-dark truncate">{group.name}</p>
@@ -166,12 +250,28 @@ function GroupsTab({ groups, people, onUpdate }) {
                     {memberNames.join(', ')}
                   </p>
                 </div>
-                <button
-                  onClick={() => deleteGroup(group.id)}
-                  className="p-2 text-sw-gray-lt hover:text-sw-red rounded-lg hover:bg-sw-red-lt transition-all shrink-0"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {isAuthorized && (
+                  <div className="flex shrink-0">
+                     <button
+                        onClick={() => {
+                          setEditingGroupId(group.id)
+                          setEditName(group.name)
+                          setEditMembers(group.memberIds)
+                        }}
+                        className="p-2 text-sw-gray-lt hover:text-sw-teal rounded-lg hover:bg-sw-teal/5 transition-all"
+                        title="Edit group"
+                      >
+                        <Edit2 size={15} />
+                      </button>
+                      <button
+                        onClick={() => deleteGroup(group.id)}
+                        className="p-2 text-sw-gray-lt hover:text-sw-red rounded-lg hover:bg-sw-red-lt transition-all"
+                        title="Delete group"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                  </div>
+                )}
               </li>
             )
           })}
@@ -181,7 +281,7 @@ function GroupsTab({ groups, people, onUpdate }) {
   )
 }
 
-export default function SettingsModal({ people, groups, onUpdatePeople, onUpdateGroups, onClose, currentUser, onSetCurrentUser }) {
+export default function SettingsModal({ people, groups, onUpdatePeople, onUpdateGroups, onUpdateSingleGroup, onClose, currentUser, onSetCurrentUser }) {
   const [tab, setTab] = useState('people')
 
   return (
@@ -228,7 +328,7 @@ export default function SettingsModal({ people, groups, onUpdatePeople, onUpdate
           {tab === 'people' ? (
             <PeopleTab people={people} onUpdate={onUpdatePeople} currentUser={currentUser} onSetCurrentUser={onSetCurrentUser} />
           ) : (
-            <GroupsTab groups={groups} people={people} onUpdate={onUpdateGroups} />
+            <GroupsTab groups={groups} people={people} onUpdate={onUpdateGroups} onUpdateSingleGroup={onUpdateSingleGroup} currentUser={currentUser} />
           )}
         </div>
       </div>
