@@ -35,6 +35,11 @@ export default function AddExpenseForm({
     }
   }, [people])
 
+  // When paidBy changes, remove the new payer from splitWith (they can't split with themselves)
+  useEffect(() => {
+    setSplitWith((prev) => prev.filter((p) => p !== paidBy))
+  }, [paidBy])
+
   function toggleSplitWith(personName) {
     setSplitWith((prev) =>
       prev.includes(personName) ? prev.filter((p) => p !== personName) : [...prev, personName]
@@ -63,7 +68,8 @@ export default function AddExpenseForm({
       name: name.trim(),
       amount: parseFloat(amount),
       paidBy,
-      splitWith: [...splitWith],
+      // Ensure the payer is never in splitWith (guards against stale state)
+      splitWith: splitWith.filter((p) => p !== paidBy),
       date,
     }
 
@@ -123,21 +129,25 @@ export default function AddExpenseForm({
             </p>
             <div className="flex flex-wrap gap-2">
               {people.map((person) => {
+                const isPayer = person.name === paidBy
                 const isSelected = splitWith.includes(person.name)
                 return (
                   <button
                     key={person.id}
                     type="button"
-                    onClick={() => toggleSplitWith(person.name)}
-                    disabled={disabled}
+                    onClick={() => !isPayer && toggleSplitWith(person.name)}
+                    disabled={disabled || isPayer}
+                    title={isPayer ? 'Payer is always included in the split' : undefined}
                     className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                      isSelected
+                      isPayer
+                        ? 'border-sw-teal bg-sw-teal/10 text-sw-teal opacity-60 cursor-not-allowed'
+                        : isSelected
                         ? 'border-sw-teal bg-sw-teal/10 text-sw-teal'
                         : 'border-sw-divider bg-white text-sw-gray hover:border-sw-teal/40'
                     } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Avatar name={person.name} size="xs" />
-                    {person.name}
+                    {person.name}{isPayer ? ' (you)' : ''}
                   </button>
                 )
               })}
